@@ -8,15 +8,15 @@ from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.core.database import async_session_factory
+from app.repositories.chat_repository import ChatRepository
+from app.repositories.vocabulary_repository import VocabularyRepository
 
 
 class IUnitOfWork(ABC):
     """Abstract Base Class defining the Unit of Work interface."""
 
-    # Concrete repository properties will be exposed here
-    # Example:
-    # users: IUserRepository
-    # vocabulary: IVocabularyRepository
+    chat: ChatRepository
+    vocabulary: VocabularyRepository
 
     async def __aenter__(self) -> Self:
         return self
@@ -56,9 +56,8 @@ class SqlAlchemyUnitOfWork(IUnitOfWork):
     async def __aenter__(self) -> Self:
         self.session = self._session_factory()
         
-        # Instantiate repositories bound to this session instance:
-        # self.users = UserRepository(self.session)
-        # self.vocabulary = VocabularyRepository(self.session)
+        self.chat = ChatRepository(self.session)
+        self.vocabulary = VocabularyRepository(self.session)
         
         return await super().__aenter__()
 
