@@ -28,21 +28,28 @@ class AITutorService:
         )
         return response.data[0].embedding
 
-    def _build_system_prompt(self, target_language: str, cefr_level: CEFRLevel, vocab_hints: list[str]) -> str:
+    def _build_system_prompt(
+        self,
+        target_language: str,
+        cefr_level: CEFRLevel | str,
+        vocab_hints: list[str],
+    ) -> str:
         """Constructs level-calibrated language tutor directives with dynamic vocab injections."""
+        level_str = cefr_level.value if isinstance(cefr_level, CEFRLevel) else str(cefr_level)
+
         level_guides = {
-            CEFRLevel.A1: "Use simple present tense, common foundational words, short sentences. Limit vocabulary strictly.",
-            CEFRLevel.A2: "Use basic past/future tenses, routine compound sentences. Keep idioms to a minimum.",
-            CEFRLevel.B1: "Converse naturally on common topics. Introduce moderate colloquialisms and subordinate clauses.",
-            CEFRLevel.B2: "Use detailed descriptions, abstract ideas, and varied register.",
-            CEFRLevel.C1: "Speak fluently with nuanced stylistic variations, complex idioms, and native pacing.",
-            CEFRLevel.C2: "Employ full native range, subtleties, and cultural idioms.",
+            "A1": "Use simple present tense, common foundational words, short sentences. Limit vocabulary strictly.",
+            "A2": "Use basic past/future tenses, routine compound sentences. Keep idioms to a minimum.",
+            "B1": "Converse naturally on common topics. Introduce moderate colloquialisms and subordinate clauses.",
+            "B2": "Use detailed descriptions, abstract ideas, and varied register.",
+            "C1": "Speak fluently with nuanced stylistic variations, complex idioms, and native pacing.",
+            "C2": "Employ full native range, subtleties, and cultural idioms.",
         }
 
-        guide = level_guides.get(cefr_level, level_guides[CEFRLevel.A1])
+        guide = level_guides.get(level_str, level_guides["A1"])
         prompt = (
             f"You are a friendly, encouraging {target_language} language tutor.\n"
-            f"Target student proficiency level: {cefr_level.value}. Guideline: {guide}\n"
+            f"Target student proficiency level: {level_str}. Guideline: {guide}\n"
             f"Always reply predominantly in {target_language}.\n"
         )
 
@@ -102,7 +109,8 @@ class AITutorService:
 
         messages = [{"role": "system", "content": system_instruction}]
         for msg in history:
-            messages.append({"role": msg.role.value, "content": msg.content})
+            role_val = msg.role.value if isinstance(msg.role, MessageRole) else str(msg.role)
+            messages.append({"role": role_val.lower(), "content": msg.content})
 
         # 5. Execute streaming completion
         stream = await client.chat.completions.create(

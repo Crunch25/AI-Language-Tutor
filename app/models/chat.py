@@ -5,6 +5,7 @@ from uuid import UUID
 
 from pgvector.sqlalchemy import Vector
 from sqlalchemy import CheckConstraint, Float, ForeignKey, Index, Integer, String, Text
+from sqlalchemy import Enum as SQLEnum
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -39,7 +40,12 @@ class ChatSession(BaseUUIDModel):
     )
     target_language: Mapped[str] = mapped_column(String(50), nullable=False)
     current_cefr_level: Mapped[CEFRLevel] = mapped_column(
-        String(2),
+        SQLEnum(
+            CEFRLevel,
+            native_enum=False,
+            values_callable=lambda obj: [e.value for e in obj],
+            length=10,
+        ),
         default=CEFRLevel.A1,
         nullable=False,
     )
@@ -62,10 +68,16 @@ class ChatMessage(BaseUUIDModel):
         index=True,
         nullable=False,
     )
-    role: Mapped[MessageRole] = mapped_column(String(20), nullable=False)
+    role: Mapped[MessageRole] = mapped_column(
+        SQLEnum(
+            MessageRole,
+            native_enum=False,
+            values_callable=lambda obj: [e.value for e in obj],
+            length=20,
+        ),
+        nullable=False,
+    )
     content: Mapped[str] = mapped_column(Text, nullable=False)
-    
-    # Store whisper logs, duration, pronunciation scores, audio S3 keys
     audio_metadata: Mapped[dict[str, Any] | None] = mapped_column(
         JSONB,
         nullable=True,
@@ -78,9 +90,6 @@ class ChatMessage(BaseUUIDModel):
 
 
 class VocabularyMemory(BaseUUIDModel):
-    """
-    Stores target vocabulary for SRS review with vector embeddings for semantic recall.
-    """
     __tablename__ = "vocabulary_memories"
 
     user_id: Mapped[UUID] = mapped_column(
@@ -93,13 +102,13 @@ class VocabularyMemory(BaseUUIDModel):
     translation: Mapped[str] = mapped_column(String(255), nullable=False)
     context_sentence: Mapped[str | None] = mapped_column(Text, nullable=True)
 
-    # Spaced Repetition (SuperMemo-2 / SM-2 Defaults)
+    # Spaced Repetition (SuperMemo-2)
     ease_factor: Mapped[float] = mapped_column(Float, default=2.5, nullable=False)
     interval_days: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
     repetition_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     next_review_at: Mapped[datetime] = mapped_column(nullable=False, index=True)
 
-    # 1536-dimensional embedding vector (e.g. text-embedding-3-small)
+    # pgvector 1536-dimensional embeddings
     embedding: Mapped[list[float]] = mapped_column(Vector(1536), nullable=False)
 
     # Relationships
@@ -107,7 +116,6 @@ class VocabularyMemory(BaseUUIDModel):
 
     __table_args__ = (
         CheckConstraint("ease_factor >= 1.3", name="check_min_ease_factor"),
-        # HNSW Index with Cosine Distance for semantic search
         Index(
             "idx_vocab_vector_cosine",
             embedding,

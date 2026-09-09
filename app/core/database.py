@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import (
     async_sessionmaker,
     create_async_engine,
 )
+from sqlalchemy.orm import DeclarativeBase
 
 from app.core.config import get_settings
 
@@ -36,6 +37,9 @@ async_session_factory: async_sessionmaker[AsyncSession] = async_sessionmaker(
     expire_on_commit=False,
 )
 
+class Base(DeclarativeBase):
+    """Base declarative class for all SQLAlchemy ORM models."""
+    pass
 
 async def dispose_database_engine() -> None:
     """Disposes the SQLAlchemy engine connections during application shutdown."""
@@ -57,3 +61,4 @@ async def get_db_session() -> AsyncGenerator[AsyncSession]:
 
 
 DatabaseSessionDep = Annotated[AsyncSession, Depends(get_db_session)]
+dispose_engine = dispose_database_engine

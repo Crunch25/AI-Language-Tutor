@@ -90,3 +90,4 @@ async def get_unit_of_work() -> AsyncGenerator[IUnitOfWork]:
 
 
 UnitOfWorkDep = Annotated[IUnitOfWork, Depends(get_unit_of_work)]
+UOWDep = UnitOfWorkDep
