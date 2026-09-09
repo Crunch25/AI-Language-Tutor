@@ -9,6 +9,8 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.core.database import async_session_factory
 from app.repositories.chat_repository import ChatRepository
+from app.repositories.token_repository import TokenRepository
+from app.repositories.user_repository import UserRepository
 from app.repositories.vocabulary_repository import VocabularyRepository
 
 
@@ -17,6 +19,8 @@ class IUnitOfWork(ABC):
 
     chat: ChatRepository
     vocabulary: VocabularyRepository
+    user_repo: UserRepository
+    token_repo: TokenRepository
 
     async def __aenter__(self) -> Self:
         return self
@@ -58,6 +62,8 @@ class SqlAlchemyUnitOfWork(IUnitOfWork):
         
         self.chat = ChatRepository(self.session)
         self.vocabulary = VocabularyRepository(self.session)
+        self.user_repo = UserRepository(self.session)
+        self.token_repo = TokenRepository(self.session)
         
         return await super().__aenter__()
 
