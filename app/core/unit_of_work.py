@@ -95,5 +95,4 @@ async def get_unit_of_work() -> AsyncGenerator[IUnitOfWork]:
         yield uow
 
 
-UnitOfWorkDep = Annotated[IUnitOfWork, Depends(get_unit_of_work)]
-UOWDep = UnitOfWorkDep
+UOWDep = Annotated[IUnitOfWork, Depends(get_unit_of_work)]
