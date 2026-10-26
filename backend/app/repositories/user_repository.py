@@ -3,9 +3,9 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.app.models.user import User
-from backend.app.repositories.base import BaseRepository
-from backend.app.schemas.auth import UserRegister
+from app.models.user import User
+from app.repositories.base import BaseRepository
+from app.schemas.auth import UserRegister
 
 
 class UserRepository(BaseRepository[User]):

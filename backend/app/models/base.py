@@ -3,7 +3,7 @@ from uuid import UUID, uuid4
 from sqlalchemy import DateTime
 from sqlalchemy.orm import Mapped, mapped_column
 
-from backend.app.core.database import Base
+from app.core.database import Base
 
 
 def utc_now() -> datetime:

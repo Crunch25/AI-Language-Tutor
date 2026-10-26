@@ -13,9 +13,9 @@ from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 from starlette.responses import Response
 
-from backend.app.api.v1.api import api_router
-from backend.app.core.config import get_settings
-from backend.app.core.database import dispose_engine
+from app.api.v1.api import api_router
+from app.core.config import get_settings
+from app.core.database import dispose_engine
 
 settings = get_settings()
 
@@ -89,7 +89,7 @@ app.add_middleware(StructuredLoggingMiddleware)
 app.add_middleware(GZipMiddleware, minimum_size=1024)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"] if settings.ENVIRONMENT == "development" else ["https://app.yourdomain.com"],
+    allow_origins=settings.CORS_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

@@ -36,7 +36,7 @@ export interface UserRead {
 }
 
 export interface UserUpdate {
-  full_name?: string;
+  full_name?: string | null;
   native_language?: string;
   target_language?: string;
   is_active?: boolean;
@@ -44,7 +44,7 @@ export interface UserUpdate {
 
 // --- Chat & SSE Streaming Schemas ---
 
-export type SSEEvent = "token" | "grammar_correction" | "vocab_hint" | "done";
+export type SSEEvent = "token" | "grammar_correction" | "vocab_hint" | "error" | "done";
 
 export interface AIStreamChunk {
   event: SSEEvent;

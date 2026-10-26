@@ -8,9 +8,9 @@ from arq.connections import RedisSettings
 from openai import AsyncOpenAI
 from sqlalchemy import select
 
-from backend.app.core.config import get_settings
-from backend.app.core.database import async_session_factory
-from backend.app.models.chat import ChatMessage, VocabularyMemory
+from app.core.config import get_settings
+from app.core.database import async_session_factory
+from app.models.chat import ChatMessage, VocabularyMemory
 
 settings = get_settings()
 logger = logging.getLogger(__name__)

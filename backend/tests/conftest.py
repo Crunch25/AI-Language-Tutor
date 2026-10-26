@@ -12,13 +12,13 @@ from sqlalchemy.ext.asyncio import (
     create_async_engine,
 )
 
-from backend.app.api.v1.endpoints.chat import get_current_user
-from backend.app.core.config import get_settings
-from backend.app.core.database import Base
-from backend.app.core.unit_of_work import IUnitOfWork, SqlAlchemyUnitOfWork, get_unit_of_work
-from backend.app.main import app
-from backend.app.models.chat import CEFRLevel, ChatSession
-from backend.app.models.user import User
+from app.api.deps import get_current_user
+from app.core.config import get_settings
+from app.core.database import Base
+from app.core.unit_of_work import IUnitOfWork, SqlAlchemyUnitOfWork, get_unit_of_work
+from app.main import app
+from app.models.chat import CEFRLevel, ChatSession
+from app.models.user import User
 
 settings = get_settings()
 
@@ -88,8 +88,8 @@ class TestUnitOfWork(SqlAlchemyUnitOfWork):
 
     async def __aenter__(self) -> "TestUnitOfWork":
         # Wire up repositories against the active transaction
-        from backend.app.repositories.chat_repository import ChatRepository
-        from backend.app.repositories.vocabulary_repository import VocabularyRepository
+        from app.repositories.chat_repository import ChatRepository
+        from app.repositories.vocabulary_repository import VocabularyRepository
 
         self.chat = ChatRepository(self.session)
         self.vocabulary = VocabularyRepository(self.session)
@@ -105,7 +105,7 @@ class TestUnitOfWork(SqlAlchemyUnitOfWork):
 
 
 @pytest.fixture
-async def mock_llm_stream():
+async def mock_llm_stream(monkeypatch: pytest.MonkeyPatch):
     """Mocks OpenAI embedding creation and streaming completion iterators."""
     async def mock_embedding(*args: Any, **kwargs: Any):
         mock_resp = AsyncMock()
@@ -115,23 +115,34 @@ async def mock_llm_stream():
         return mock_resp
 
     async def mock_completion_stream(*args: Any, **kwargs: Any):
-        chunks = ["¡Hola! ", "¿Cómo ", "estás ", "hoy?"]
-        for c in chunks:
-            mock_chunk = AsyncMock()
-            mock_choice = AsyncMock()
-            mock_choice.delta.content = c
-            mock_chunk.choices = [mock_choice]
-            yield mock_chunk
+        if kwargs.get("stream"):
+            async def stream_chunks():
+                for content in ["¡Hola! ", "¿Cómo ", "estás ", "hoy?"]:
+                    mock_chunk = AsyncMock()
+                    mock_choice = AsyncMock()
+                    mock_choice.delta.content = content
+                    mock_chunk.choices = [mock_choice]
+                    yield mock_chunk
+
+            return stream_chunks()
+
+        mock_response = AsyncMock()
+        mock_choice = AsyncMock()
+        mock_choice.message.content = (
+            '{"corrections":[{"original":"Hola","replacement":"Hola","explanation":"Greeting."}],'
+            '"used_vocabulary":["hola"],"fluency_score_0_to_5":4,'
+            '"vocabulary_hints":["¿Qué tal?"]}'
+        )
+        mock_response.choices = [mock_choice]
+        return mock_response
 
     with (
         patch("app.services.ai_tutor_service.client.embeddings.create", side_effect=mock_embedding),
         patch("app.services.ai_tutor_service.client.chat.completions.create", side_effect=mock_completion_stream),
-        patch("app.services.ai_tutor_service.create_pool", new_callable=AsyncMock) as mock_redis,
     ):
-        # Mock Redis queue enqueue
         mock_pool = AsyncMock()
-        mock_redis.return_value = mock_pool
-        yield
+        monkeypatch.setattr(app.state, "redis_pool", mock_pool, raising=False)
+        yield mock_pool
 
 
 @pytest.fixture

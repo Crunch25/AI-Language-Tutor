@@ -5,11 +5,11 @@ from uuid import UUID, uuid4
 from sqlalchemy import Boolean, DateTime, ForeignKey, Index, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from backend.app.core.database import Base
-from backend.app.models.base import BaseUUIDModel
+from app.core.database import Base
+from app.models.base import BaseUUIDModel
 
 if TYPE_CHECKING:
-    from backend.app.models.chat import ChatSession, VocabularyMemory
+    from app.models.chat import ChatSession, VocabularyMemory
 
 
 def utc_now() -> datetime:

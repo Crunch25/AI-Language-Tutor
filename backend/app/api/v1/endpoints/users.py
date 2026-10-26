@@ -1,8 +1,8 @@
 from fastapi import APIRouter, status
 
-from backend.app.api.deps import CurrentUser
-from backend.app.core.unit_of_work import UOWDep
-from backend.app.schemas.user import UserRead, UserUpdate
+from app.api.deps import CurrentUser
+from app.core.unit_of_work import UOWDep
+from app.schemas.user import UserRead, UserUpdate
 
 router = APIRouter(prefix="/users", tags=["Users"])
 

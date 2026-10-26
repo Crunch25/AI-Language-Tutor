@@ -29,6 +29,7 @@ class Settings(BaseSettings):
     JWT_SECRET_KEY: SecretStr
     JWT_ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
+    CORS_ORIGINS: list[str] = ["http://localhost:3000"]
 
     DATABASE_URL: PostgresDsn
     REDIS_URL: RedisDsn

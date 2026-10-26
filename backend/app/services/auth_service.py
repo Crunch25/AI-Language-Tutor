@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta, timezone
 from uuid import UUID
 
-from backend.app.core.exceptions import (
+from app.core.exceptions import (
     DuplicateEmailError,
     InactiveUserError,
     InvalidCredentialsError,
@@ -9,7 +9,7 @@ from backend.app.core.exceptions import (
     SecurityCompromisedError,
     TokenRevokedError,
 )
-from backend.app.core.security import (
+from app.core.security import (
     TokenExpiredError,
     TokenVerificationError,
     create_access_token,
@@ -18,9 +18,9 @@ from backend.app.core.security import (
     hash_password,
     verify_password,
 )
-from backend.app.core.unit_of_work import IUnitOfWork
-from backend.app.models.user import User
-from backend.app.schemas.auth import TokenPayload, TokenResponse, UserLogin, UserRegister
+from app.core.unit_of_work import IUnitOfWork
+from app.models.user import RefreshToken, User
+from app.schemas.auth import TokenPayload, TokenResponse, UserLogin, UserRegister
 
 
 class AuthService:
@@ -100,19 +100,12 @@ class AuthService:
         user_id = UUID(str(claims.sub))
         jti = claims.jti
 
-        # Look up token record directly by JTI
-        stored_token = await self.uow.token_repo.get(
-            # Fetch by checking matching JTI directly
-            entity_id=None  # Handled via custom lookup below
-        ) if False else None
-
         # Direct search by JTI across all rows
         token_record = await self.uow.token_repo.get_active_token(jti)
 
         if token_record is None:
             # Check if token exists in revoked state to detect replay attack
             from sqlalchemy import select
-            from backend.app.models.user import RefreshToken
 
             stmt = select(RefreshToken).where(RefreshToken.jti == jti)
             result = await self.uow.token_repo.session.execute(stmt)

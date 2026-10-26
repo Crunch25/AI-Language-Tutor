@@ -1,12 +1,13 @@
 import json
+from unittest.mock import AsyncMock
 from uuid import uuid4
 import pytest
 from httpx import AsyncClient
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.app.models.chat import CEFRLevel, ChatMessage, ChatSession, MessageRole
-from backend.app.models.user import User
+from app.models.chat import CEFRLevel, ChatMessage, ChatSession, MessageRole
+from app.models.user import User
 
 
 @pytest.mark.anyio
@@ -14,7 +15,7 @@ async def test_post_message_stream_e2e(
     async_client: AsyncClient,
     db_session: AsyncSession,
     mock_user: User,
-    mock_llm_stream: None,
+    mock_llm_stream: AsyncMock,
 ) -> None:
     # 1. Arrange: Seed user and chat session into current transaction
     db_session.add(mock_user)
@@ -49,15 +50,23 @@ async def test_post_message_stream_e2e(
 
     tokens: list[str] = []
     received_done = False
+    received_grammar_feedback = False
+    received_vocabulary_hint = False
 
     for line in lines:
         payload_data = json.loads(line.removeprefix("data: "))
         if payload_data["event"] == "token":
             tokens.append(payload_data["delta"])
+        elif payload_data["event"] == "grammar_correction":
+            received_grammar_feedback = True
+        elif payload_data["event"] == "vocab_hint":
+            received_vocabulary_hint = True
         elif payload_data["event"] == "done":
             received_done = True
 
     assert received_done is True
+    assert received_grammar_feedback is True
+    assert received_vocabulary_hint is True
     reconstructed_text = "".join(tokens)
     assert reconstructed_text == "¡Hola! ¿Cómo estás hoy?"
 
@@ -76,6 +85,12 @@ async def test_post_message_stream_e2e(
 
     assert messages[1].role == MessageRole.ASSISTANT
     assert messages[1].content == "¡Hola! ¿Cómo estás hoy?"
+    mock_llm_stream.enqueue_job.assert_awaited_once_with(
+        "update_srs_reviews",
+        user_id=str(mock_user.id),
+        words=["hola"],
+        quality=4,
+    )
 
 
 @pytest.mark.anyio

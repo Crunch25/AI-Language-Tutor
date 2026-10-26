@@ -1,12 +1,12 @@
 from collections.abc import Sequence
 from uuid import UUID
 
-from sqlalchemy import desc, select
+from sqlalchemy import delete, desc, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from backend.app.models.chat import ChatMessage, ChatSession, MessageRole
-from backend.app.repositories.base import BaseRepository
+from app.models.chat import ChatMessage, ChatSession, MessageRole
+from app.repositories.base import BaseRepository
 
 
 class ChatRepository(BaseRepository[ChatSession]):
@@ -86,3 +86,25 @@ class ChatRepository(BaseRepository[ChatSession]):
         )
         result = await self.session.execute(stmt)
         return result.scalars().all()
+
+    async def get_session_messages(
+        self,
+        session_id: UUID,
+    ) -> Sequence[ChatMessage]:
+        """Fetch messages for a session in chronological order."""
+        stmt = (
+            select(ChatMessage)
+            .where(ChatMessage.session_id == session_id)
+            .order_by(ChatMessage.created_at.asc())
+        )
+        result = await self.session.execute(stmt)
+        return result.scalars().all()
+
+    async def delete_user_session(self, session_id: UUID, user_id: UUID) -> bool:
+        """Delete a session only when it belongs to the requesting user."""
+        stmt = delete(ChatSession).where(
+            ChatSession.id == session_id,
+            ChatSession.user_id == user_id,
+        )
+        result = await self.session.execute(stmt)
+        return (result.rowcount or 0) > 0

@@ -1,7 +1,7 @@
 # init_db.py
 import asyncio
-from backend.app.core.database import engine, Base, dispose_database_engine
-import backend.app.models
+from app.core.database import engine, Base, dispose_database_engine
+import app.models
 
 async def init():
     print("Creating tables in Neon PostgreSQL...")

@@ -2,18 +2,61 @@
 
 import { useState, useRef, useCallback, useEffect } from "react";
 import { getAccessToken, getRefreshToken, setTokens, removeTokens } from "@/lib/auth/tokenStorage";
+import { chatApi } from "@/lib/api/client";
 import type {
   ChatMessage,
   AIStreamChunk,
   TokenResponse,
   TokenRefreshRequest,
 } from "@/lib/types/api";
+import type { ChatMessageRead } from "@/lib/api/client";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000/api/v1";
+const EMPTY_MESSAGES: ChatMessage[] = [];
+
+function getConversationFeedback(messages: ChatMessageRead[]): {
+  grammar: string[];
+  vocabulary: string[];
+} {
+  const grammar: string[] = [];
+  const vocabulary = new Set<string>();
+
+  for (const message of messages) {
+    if (message.role !== "user") continue;
+    const metadata = message.audio_metadata;
+    const analysis = metadata?.grammar_analysis;
+    if (!analysis || typeof analysis !== "object") continue;
+
+    if ("corrections" in analysis && Array.isArray(analysis.corrections)) {
+      for (const correction of analysis.corrections) {
+        if (!correction || typeof correction !== "object") continue;
+        const original = "original" in correction ? correction.original : undefined;
+        const replacement = "replacement" in correction ? correction.replacement : undefined;
+        const explanation = "explanation" in correction ? correction.explanation : undefined;
+        if (
+          typeof original === "string" &&
+          typeof replacement === "string" &&
+          typeof explanation === "string"
+        ) {
+          grammar.push(`${original} → ${replacement}: ${explanation}`);
+        }
+      }
+    }
+
+    if ("vocabulary_hints" in analysis && Array.isArray(analysis.vocabulary_hints)) {
+      for (const hint of analysis.vocabulary_hints) {
+        if (typeof hint === "string" && hint.trim()) vocabulary.add(hint.trim());
+      }
+    }
+  }
+
+  return { grammar, vocabulary: Array.from(vocabulary) };
+}
 
 export interface UseChatStreamReturn {
   messages: ChatMessage[];
   isStreaming: boolean;
+  isLoadingMessages: boolean;
   streamingMessage: string;
   vocabHints: string[];
   grammarFeedback: string[];
@@ -24,7 +67,7 @@ export interface UseChatStreamReturn {
 
 export function useChatStream(
   sessionId: string,
-  initialMessages: ChatMessage[] = []
+  initialMessages: ChatMessage[] = EMPTY_MESSAGES
 ): UseChatStreamReturn {
   const [messages, setMessages] = useState<ChatMessage[]>(initialMessages);
   const [isStreaming, setIsStreaming] = useState<boolean>(false);
@@ -32,8 +75,11 @@ export function useChatStream(
   const [vocabHints, setVocabHints] = useState<string[]>([]);
   const [grammarFeedback, setGrammarFeedback] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [isLoadingMessages, setIsLoadingMessages] = useState(false);
 
   const abortControllerRef = useRef<AbortController | null>(null);
+  const currentSessionIdRef = useRef(sessionId);
+  currentSessionIdRef.current = sessionId;
 
   /**
    * Cancels any active SSE stream request.
@@ -46,14 +92,62 @@ export function useChatStream(
     setIsStreaming(false);
   }, []);
 
-  // Automatically abort open streams when component unmounts or sessionId changes
+  // Reset session-scoped UI and load the selected conversation's history.
   useEffect(() => {
+    let cancelled = false;
+    setMessages(initialMessages);
+    setVocabHints([]);
+    setGrammarFeedback([]);
+    setError(null);
+    setStreamingMessage("");
+    setIsStreaming(false);
+
+    if (sessionId && sessionId !== "undefined") {
+      setIsLoadingMessages(true);
+      chatApi
+        .getMessages(sessionId)
+        .then((history) => {
+          if (cancelled || currentSessionIdRef.current !== sessionId) return;
+          const feedback = getConversationFeedback(history);
+          setGrammarFeedback(feedback.grammar);
+          setVocabHints(feedback.vocabulary);
+          setMessages(
+            history
+              .flatMap((message) =>
+                message.role === "user" || message.role === "assistant"
+                  ? [{
+                      id: message.id,
+                      role: message.role,
+                      content: message.content,
+                      createdAt: message.created_at,
+                    }]
+                  : []
+              )
+          );
+        })
+        .catch((err: unknown) => {
+          if (cancelled || currentSessionIdRef.current !== sessionId) return;
+          setError(
+            err instanceof Error ? err.message : "Failed to load conversation messages."
+          );
+        })
+        .finally(() => {
+          if (!cancelled && currentSessionIdRef.current === sessionId) {
+            setIsLoadingMessages(false);
+          }
+        });
+    } else {
+      setIsLoadingMessages(false);
+    }
+
     return () => {
+      cancelled = true;
       if (abortControllerRef.current) {
         abortControllerRef.current.abort();
+        abortControllerRef.current = null;
       }
     };
-  }, [sessionId]);
+  }, [sessionId, initialMessages]);
 
   /**
    * Internal helper to execute the streaming fetch and transparently retry once on 401.
@@ -117,6 +211,11 @@ export function useChatStream(
     async (content: string): Promise<void> => {
       const trimmed = content.trim();
       if (!trimmed || isStreaming) return;
+      if (!sessionId || sessionId === "undefined") {
+        setError("Cannot send message: No active chat session.");
+        return;
+      }
+      const requestSessionId = sessionId;
 
       // Cancel any residual controller and initialize a fresh one
       if (abortControllerRef.current) {
@@ -140,7 +239,11 @@ export function useChatStream(
         createdAt: new Date().toISOString(),
       };
 
-      setMessages((prev) => [...prev, optimisticUserMessage]);
+      setMessages((prev) =>
+        currentSessionIdRef.current === requestSessionId
+          ? [...prev, optimisticUserMessage]
+          : prev
+      );
 
       let accumulatedAssistantText = "";
 
@@ -178,6 +281,7 @@ export function useChatStream(
         while (!streamDone) {
           const { done, value } = await reader.read();
           if (done) break;
+          if (currentSessionIdRef.current !== requestSessionId) break;
 
           // Decode binary chunk; `{ stream: true }` preserves multi-byte UTF-8 characters split across packets
           partialBuffer += decoder.decode(value, { stream: true });
@@ -210,7 +314,9 @@ export function useChatStream(
                 case "token": {
                   if (chunk.delta) {
                     accumulatedAssistantText += chunk.delta;
-                    setStreamingMessage(accumulatedAssistantText);
+                    if (currentSessionIdRef.current === requestSessionId) {
+                      setStreamingMessage(accumulatedAssistantText);
+                    }
                   }
                   break;
                 }
@@ -220,7 +326,9 @@ export function useChatStream(
                     chunk.delta ||
                     (typeof chunk.metadata?.word === "string" ? chunk.metadata.word : "");
                   if (hint) {
-                    setVocabHints((prev) => (prev.includes(hint) ? prev : [...prev, hint]));
+                    if (currentSessionIdRef.current === requestSessionId) {
+                      setVocabHints((prev) => (prev.includes(hint) ? prev : [...prev, hint]));
+                    }
                   }
                   break;
                 }
@@ -232,7 +340,16 @@ export function useChatStream(
                       ? chunk.metadata.explanation
                       : "");
                   if (correction) {
-                    setGrammarFeedback((prev) => [...prev, correction]);
+                    if (currentSessionIdRef.current === requestSessionId) {
+                      setGrammarFeedback((prev) => [...prev, correction]);
+                    }
+                  }
+                  break;
+                }
+
+                case "error": {
+                  if (chunk.delta && currentSessionIdRef.current === requestSessionId) {
+                    setError(chunk.delta);
                   }
                   break;
                 }
@@ -240,7 +357,9 @@ export function useChatStream(
                 case "done": {
                   // If backend sends an inline error message on a `done` event when a session is missing
                   if (chunk.delta && !accumulatedAssistantText) {
-                    setError(chunk.delta);
+                    if (currentSessionIdRef.current === requestSessionId) {
+                      setError(chunk.delta);
+                    }
                   }
                   streamDone = true;
                   break;
@@ -263,14 +382,21 @@ export function useChatStream(
             content: accumulatedAssistantText,
             createdAt: new Date().toISOString(),
           };
-          setMessages((prev) => [...prev, assistantMessage]);
+          if (currentSessionIdRef.current === requestSessionId) {
+            setMessages((prev) => [...prev, assistantMessage]);
+          }
         }
 
-        setStreamingMessage("");
+        if (currentSessionIdRef.current === requestSessionId) {
+          setStreamingMessage("");
+        }
       } catch (err: unknown) {
         if (err instanceof DOMException && err.name === "AbortError") {
           // Preserve partial assistant response if the user manually stopped the stream
-          if (accumulatedAssistantText.trim().length > 0) {
+          if (
+            currentSessionIdRef.current === requestSessionId &&
+            accumulatedAssistantText.trim().length > 0
+          ) {
             setMessages((prev) => [
               ...prev,
               {
@@ -281,17 +407,23 @@ export function useChatStream(
               },
             ]);
           }
-          setStreamingMessage("");
+          if (currentSessionIdRef.current === requestSessionId) {
+            setStreamingMessage("");
+          }
         } else {
           const message =
             err instanceof Error ? err.message : "An unexpected streaming error occurred.";
-          setError(message);
+          if (currentSessionIdRef.current === requestSessionId) {
+            setError(message);
+          }
         }
       } finally {
         if (abortControllerRef.current === controller) {
           abortControllerRef.current = null;
+          if (currentSessionIdRef.current === requestSessionId) {
+            setIsStreaming(false);
+          }
         }
-        setIsStreaming(false);
       }
     },
     [sessionId, isStreaming]
@@ -300,6 +432,7 @@ export function useChatStream(
   return {
     messages,
     isStreaming,
+    isLoadingMessages,
     streamingMessage,
     vocabHints,
     grammarFeedback,

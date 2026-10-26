@@ -1,7 +1,9 @@
 {
   "compilerOptions": {
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": [
+        "./src/*"
+      ]
     },
     "module": "esnext",
     "moduleResolution": "bundler",
@@ -29,7 +31,9 @@
     "next-env.d.ts",
     ".next/types/**/*.ts",
     "**/*.ts",
-    "**/*.tsx"
+    "**/*.tsx",
+    ".next-styles-check/types/**/*.ts",
+    ".next-profile-check/types/**/*.ts"
   ],
   "exclude": [
     "node_modules"

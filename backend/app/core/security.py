@@ -1,17 +1,20 @@
 from datetime import datetime, timedelta, timezone
 from typing import Any
 from uuid import UUID, uuid4
+from pwdlib.hashers.argon2 import Argon2Hasher
+from pwdlib import PasswordHash
+from pwdlib.exceptions import UnknownHashError
 
 import jwt
 from jwt.exceptions import ExpiredSignatureError, InvalidTokenError, PyJWTError
 from pwdlib import PasswordHash
 
-from backend.app.core.config import get_settings
+from app.core.config import get_settings
 
 settings = get_settings()
 
 # Initialize Argon2-based password hashing via pwdlib recommended defaults
-password_hash = PasswordHash.recommended()
+password_hash = PasswordHash((Argon2Hasher(),))
 
 
 class TokenVerificationError(Exception):
@@ -35,8 +38,11 @@ def hash_password(password: str) -> str:
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
-    """Verify a plaintext password against an existing hash."""
-    return password_hash.verify(plain_password, hashed_password)
+    """Verify a plaintext password against an existing hash safely."""
+    try:
+        return password_hash.verify(plain_password, hashed_password)
+    except (UnknownHashError, Exception):
+        return False
 
 
 def create_token(

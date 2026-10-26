@@ -5,8 +5,8 @@ from uuid import UUID
 from sqlalchemy import desc, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.app.models.chat import VocabularyMemory
-from backend.app.repositories.base import BaseRepository
+from app.models.chat import VocabularyMemory
+from app.repositories.base import BaseRepository
 
 
 class VocabularyRepository(BaseRepository[VocabularyMemory]):

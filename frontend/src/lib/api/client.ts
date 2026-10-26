@@ -27,6 +27,40 @@ export class ApiError extends Error {
   }
 }
 
+export interface ChatSessionRead {
+  id: string;
+  target_language: string;
+  created_at: string;
+}
+
+export interface ChatMessageRead {
+  id: string;
+  role: "user" | "assistant" | "system";
+  content: string;
+  created_at: string;
+  audio_metadata?: Record<string, unknown> | null;
+}
+
+export const chatApi = {
+  async getSessions(): Promise<ChatSessionRead[]> {
+    return apiFetch<ChatSessionRead[]>("/sessions", { method: "GET" });
+  },
+  async getMessages(sessionId: string): Promise<ChatMessageRead[]> {
+    return apiFetch<ChatMessageRead[]>(`/sessions/${sessionId}/messages`, {
+      method: "GET",
+    });
+  },
+  async deleteSession(sessionId: string): Promise<void> {
+    await apiFetch<void>(`/sessions/${sessionId}`, { method: "DELETE" });
+  },
+  async createSession(targetLanguage: string = "Spanish"): Promise<ChatSessionRead> {
+    return apiFetch<ChatSessionRead>("/sessions", {
+      method: "POST",
+      body: JSON.stringify({ target_language: targetLanguage }),
+    });
+  },
+};
+
 // Concurrency lock variables to prevent multiple simultaneous refresh token requests
 let isRefreshing = false;
 let failedQueue: Array<{
@@ -148,18 +182,26 @@ export async function apiFetch<T>(endpoint: string, options: RequestInit = {}): 
   if (!response.ok) {
     let errorDetail = "An unexpected error occurred.";
     let errorData: unknown = null;
+    const responseBody = await response.text();
     try {
-      errorData = await response.json();
-      if (errorData && typeof errorData === "object" && "detail" in errorData) {
-        const detail = (errorData as { detail: unknown }).detail;
-        if (typeof detail === "string") {
-          errorDetail = detail;
-        } else if (Array.isArray(detail)) {
-          errorDetail = detail.map((err) => err.msg || JSON.stringify(err)).join(", ");
-        }
-      }
+      errorData = responseBody ? JSON.parse(responseBody) : null;
     } catch {
-      errorData = await response.text();
+      errorData = responseBody;
+      if (responseBody) errorDetail = responseBody;
+    }
+    if (errorData && typeof errorData === "object" && "detail" in errorData) {
+      const detail = (errorData as { detail: unknown }).detail;
+      if (typeof detail === "string") {
+        errorDetail = detail;
+      } else if (Array.isArray(detail)) {
+        errorDetail = detail
+          .map((item) =>
+            item && typeof item === "object" && "msg" in item
+              ? String(item.msg)
+              : JSON.stringify(item)
+          )
+          .join(", ");
+      }
     }
     throw new ApiError(response.status, errorDetail, errorData);
   }

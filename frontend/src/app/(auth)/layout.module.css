@@ -1,0 +1,112 @@
+.authLayout {
+  display: flex;
+  min-height: 100vh;
+  background:
+    radial-gradient(ellipse at 10% 10%, rgb(212 229 255 / 60%), transparent 35%),
+    #f5f8fc;
+}
+
+.brandPanel {
+  position: relative;
+  display: flex;
+  flex: 1;
+  align-items: center;
+  overflow: hidden;
+  padding: clamp(2.5rem, 7vw, 7rem);
+  color: #fff;
+  background: linear-gradient(145deg, #315fc6, #24499f 60%, #1c3d83);
+}
+
+.brandContent {
+  position: relative;
+  z-index: 1;
+  max-width: 540px;
+}
+
+.brandContent h1 {
+  margin: 0 0 1.25rem;
+  font-size: clamp(2.5rem, 4.8vw, 4.4rem);
+  letter-spacing: -0.055em;
+  line-height: 1.05;
+}
+
+.brandContent p {
+  max-width: 500px;
+  margin: 0 0 2rem;
+  color: #dce7ff;
+  font-size: 1.08rem;
+  line-height: 1.75;
+}
+
+.featureList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+}
+
+.feature {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.65rem 0.85rem;
+  border: 1px solid rgb(255 255 255 / 20%);
+  border-radius: 999px;
+  background: rgb(255 255 255 / 10%);
+  color: #f4f7ff;
+  font-size: 0.83rem;
+}
+
+.feature svg {
+  color: #b9d1ff;
+}
+
+.orbOne,
+.orbTwo {
+  position: absolute;
+  border-radius: 50%;
+  background: rgb(135 176 255 / 18%);
+  filter: blur(2px);
+}
+
+.orbOne {
+  right: -9rem;
+  bottom: -12rem;
+  width: 34rem;
+  height: 34rem;
+}
+
+.orbTwo {
+  top: -8rem;
+  right: 15%;
+  width: 18rem;
+  height: 18rem;
+}
+
+.formPanel {
+  display: flex;
+  flex: 0 1 560px;
+  align-items: center;
+  justify-content: center;
+  padding: clamp(1.25rem, 4vw, 3.5rem);
+}
+
+.formCard {
+  width: 100%;
+  max-width: 440px;
+  padding: clamp(1.5rem, 4vw, 2.75rem);
+  border: 1px solid rgb(226 233 243 / 90%);
+  border-radius: 24px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+
+@media (max-width: 900px) {
+  .brandPanel {
+    display: none;
+  }
+
+  .formPanel {
+    flex-basis: 100%;
+    min-height: 100vh;
+  }
+}

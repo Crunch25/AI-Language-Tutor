@@ -7,11 +7,11 @@ from typing import Annotated, Self
 from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from backend.app.core.database import async_session_factory
-from backend.app.repositories.chat_repository import ChatRepository
-from backend.app.repositories.token_repository import TokenRepository
-from backend.app.repositories.user_repository import UserRepository
-from backend.app.repositories.vocabulary_repository import VocabularyRepository
+from app.core.database import async_session_factory
+from app.repositories.chat_repository import ChatRepository
+from app.repositories.token_repository import TokenRepository
+from app.repositories.user_repository import UserRepository
+from app.repositories.vocabulary_repository import VocabularyRepository
 
 
 class IUnitOfWork(ABC):

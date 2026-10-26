@@ -1,23 +1,23 @@
-from backend.app.schemas.auth import (
+from app.schemas.auth import (
     TokenPayload,
     TokenRefreshRequest,
     TokenResponse,
     UserLogin,
     UserRegister,
 )
-from backend.app.schemas.chat import (
+from app.schemas.chat import (
     AIStreamChunk,
     ChatMessageCreate,
     ChatMessageRead,
     ChatSessionCreate,
     ChatSessionRead,
 )
-from backend.app.schemas.user import (
+from app.schemas.user import (
     UserBase,
     UserRead,
     UserUpdate,
 )
-from backend.app.schemas.vocabulary import (
+from app.schemas.vocabulary import (
     SRSReviewUpdate,
     VocabularyCreate,
     VocabularyRead,

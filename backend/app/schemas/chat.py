@@ -4,7 +4,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from backend.app.models.chat import CEFRLevel, MessageRole
+from app.models.chat import CEFRLevel, MessageRole
 
 
 # --- Chat Message Schemas ---
@@ -50,6 +50,6 @@ class ChatSessionRead(BaseModel):
 # --- Streaming SSE Chunk Schema ---
 class AIStreamChunk(BaseModel):
     """Payload format streamed over Server-Sent Events (SSE)."""
-    event: Literal["token", "grammar_correction", "vocab_hint", "done"] = "token"
+    event: Literal["token", "grammar_correction", "vocab_hint", "error", "done"] = "token"
     delta: str = ""
     metadata: dict[str, Any] | None = None

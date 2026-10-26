@@ -9,10 +9,10 @@ from sqlalchemy import Enum as SQLEnum
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from backend.app.models.base import BaseUUIDModel
+from app.models.base import BaseUUIDModel
 
 if TYPE_CHECKING:
-    from backend.app.models.user import User
+    from app.models.user import User
 
 
 class CEFRLevel(StrEnum):

@@ -4,11 +4,11 @@ from uuid import UUID
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 
-from backend.app.core.security import TokenExpiredError, TokenVerificationError, decode_token
-from backend.app.core.exceptions import InvalidTokenError
-from backend.app.core.unit_of_work import UOWDep
-from backend.app.models.user import User
-from backend.app.schemas.auth import TokenPayload
+from app.core.security import TokenExpiredError, TokenVerificationError, decode_token
+from app.core.exceptions import InvalidTokenError
+from app.core.unit_of_work import UOWDep
+from app.models.user import User
+from app.schemas.auth import TokenPayload
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
 

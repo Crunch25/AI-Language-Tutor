@@ -3,7 +3,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordRequestForm
 
-from backend.app.core.exceptions import (
+from app.core.exceptions import (
     DuplicateEmailError,
     InactiveUserError,
     InvalidCredentialsError,
@@ -11,15 +11,15 @@ from backend.app.core.exceptions import (
     SecurityCompromisedError,
     TokenRevokedError,
 )
-from backend.app.core.unit_of_work import UOWDep
-from backend.app.schemas.auth import (
+from app.core.unit_of_work import UOWDep
+from app.schemas.auth import (
     TokenRefreshRequest,
     TokenResponse,
     UserLogin,
     UserRegister,
 )
-from backend.app.schemas.user import UserRead
-from backend.app.services.auth_service import AuthService
+from app.schemas.user import UserRead
+from app.services.auth_service import AuthService
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
@@ -53,17 +53,35 @@ async def register(
     summary="Authenticate and receive access + refresh token pair",
 )
 async def login(
-    form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
+    request: Request,
     uow: UOWDep,
 ) -> TokenResponse:
-    try:
-        # Convert form data into our validated UserLogin DTO
-        login_dto = UserLogin(email=form_data.username, password=form_data.password)
-    except Exception as exc:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=f"Invalid username/email: {exc}",
-        )
+    """
+    Accepts credentials via either application/json (Next.js frontend)
+    or application/x-www-form-urlencoded (Swagger UI / OAuth2 specification).
+    """
+    content_type = request.headers.get("content-type", "")
+
+    if "application/x-www-form-urlencoded" in content_type:
+        form = await request.form()
+        username = form.get("username")
+        password = form.get("password")
+        if not username or not password:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="Form data missing required username or password fields",
+            )
+        login_dto = UserLogin(email=str(username), password=str(password))
+    else:
+        try:
+            body = await request.json()
+            login_dto = UserLogin.model_validate(body)
+        except Exception:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="Invalid or missing JSON credentials in request body",
+            )
+
     auth_service = AuthService(uow=uow)
     try:
         return await auth_service.authenticate(login_dto)

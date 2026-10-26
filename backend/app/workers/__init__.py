@@ -1,4 +1,4 @@
-from backend.app.workers.tasks import (
+from app.workers.tasks import (
     WorkerSettings,
     analyze_grammar_and_syntax,
     calculate_sm2,
